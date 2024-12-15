@@ -1,5 +1,6 @@
 import cv2
 import pytesseract
+import api
 
 #pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 cap = cv2.VideoCapture(0) 
@@ -41,6 +42,7 @@ def main():
         if frame_count % process_every_n_frames == 0:
             text = ocr_setup(frame)
             print("text detected:" + text)
+            api.autocomplete(text) # PoC of what i intend to do
         frame_count += 1
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
