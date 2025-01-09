@@ -2,52 +2,45 @@ import cv2
 import pytesseract
 import api
 import re
+import requests
+import numpy as np
+from io import BytesIO
 
 #pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 cap = cv2.VideoCapture(0) 
 
-def ocr_setup(frame):
-    color = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+def processed_frame(frame):
+    # Adjust contrast and sharpness while keeping the image in color
+    contrast = cv2.convertScaleAbs(frame, alpha=1.3, beta=20)  # Slight contrast and brightness adjustment
+    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])  # Sharpening kernel
+    sharpened = cv2.filter2D(contrast, -1, kernel)
+    return sharpened
 
-    #not needed rn
-    #x, y, w, h = 100, 100, 300, 300
-    #roi = thresh[y:y+h, x:x+w]
+def process_from_url(url):
+    response = requests.get(url)
+    if response.status_code != 200:
+        print("can't fetch from url")
+        return
 
-    # reduces noise 
-    # blurred = cv2.GaussianBlur(color, (5, 5), 0)
-    thresh = cv2.adaptiveThreshold(
-        color, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    image = np.array(bytearray(response.content), dtype=np.uint8)
+    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    if image is None:
+        print("can't decode from url")
+        return
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    processed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+    p_frame = processed_frame(image)
+    cv2.imshow('Processed Image', p_frame)
+    text = pytesseract.image_to_string(p_frame, lang='eng')
+    print("text detected:" + text)
 
-    text = pytesseract.image_to_string(processed, lang='eng')
-    return text
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-def camera_setup():
-    W=600
-    H=600
+def detect_card():
+    #camera setup
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')) # doesnt work without this for me
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, W)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
     cap.set(cv2.CAP_PROP_FPS, 60)
 
-# this displays the preprocessed frame
-def preprocess_frame(frame):
-    color = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    # reduces noise 
-    # blurred = cv2.GaussianBlur(color, (5, 5), 0)
-    thresh = cv2.adaptiveThreshold(
-        color, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    processed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-    return processed
-
-
-def main():
-    camera_setup()
     if not cap.isOpened():
         print("cam not found")
         return
@@ -60,17 +53,14 @@ def main():
         if not ret:
             break
         
-        # preprocessed frame so you can se what it looks like
-        processed_frame = preprocess_frame(frame)
-        
+        p_frame = processed_frame(frame)
         cv2.imshow('Original Camera', frame)
-        cv2.imshow('Processed Camera', processed_frame)
+        cv2.imshow('Processed Frame', p_frame)
 
-        # OCR process_every_n_frames 
         if frame_count % process_every_n_frames == 0:
-            text = ocr_setup(frame)
+            text = pytesseract.image_to_string(p_frame, lang='eng')
             print("text detected:" + text)
-            #api.autocomplete(text) # PoC of what i intend to do
+            api.autocomplete(text)  #api call
 
         frame_count += 1
 
@@ -79,6 +69,10 @@ def main():
 
     cap.release()
     cv2.destroyAllWindows()
+
+def main():
+    detect_card()
+    #process_from_url("https://cards.scryfall.io/large/front/3/c/3cee9303-9d65-45a2-93d4-ef4aba59141b.jpg?1730489152")
 
 if __name__ == "__main__":
     main()

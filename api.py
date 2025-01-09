@@ -1,8 +1,7 @@
 import requests
 
 def autocomplete(text):
-    p = {text}
-    endpoint = f'https://api.scryfall.com/cards/autocomplete?q={p}'
+    endpoint = f'https://api.scryfall.com/cards/autocomplete?q={text}'
     response = requests.get(endpoint)
 
     if response.status_code == 200:
@@ -14,5 +13,12 @@ def autocomplete(text):
         print(f"error: {response.status_code}")
         return None
 
-# if __name__ == "__main__":
-#     main()
+def multiverse(id):
+    endpoint = f'https://api.scryfall.com/cards/multiverse/{id}'
+    response = requests.get(endpoint)
+
+    if response.status_code == 200:
+        print(response.json())
+    else:
+        print(f"error: {response.status_code}")
+        return None
